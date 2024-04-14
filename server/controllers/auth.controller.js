@@ -1,10 +1,10 @@
+import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
+import generateTokenAndSetCookie from "../utils/generateTokenAndSetCookie.js";
 
 export const signUp = async (req, res) => {
   try {
     const { fullName, username, password, confirmPassword, gender } = req.body;
-    console.log(password);
-    console.log(confirmPassword);
     if (password !== confirmPassword) {
       return res.status(400).json({ error: "Passwords don't match" });
     }
@@ -17,22 +17,30 @@ export const signUp = async (req, res) => {
 
     const profilePicture = `https://robohash.org/${username}`;
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newUser = new User({
       fullName,
       username,
-      password,
+      password: hashedPassword,
       gender,
       profilePicture,
     });
 
-    await newUser.save();
+    if (newUser) {
+      generateTokenAndSetCookie(newUser._id, res);
 
-    res.status(201).json({
-      _id: newUser._id,
-      fullName: newUser.fullName,
-      username: newUser.username,
-      profilePicture: newUser.profilePicture,
-    });
+      await newUser.save();
+
+      res.status(201).json({
+        _id: newUser._id,
+        fullName: newUser.fullName,
+        username: newUser.username,
+        profilePicture: newUser.profilePicture,
+      });
+    } else {
+      res.status(400).json({ error: "Invalid user data" });
+    }
   } catch (error) {
     console.log("Error in signup controller", error.message);
     res.status(500).json({ error: "Internal server error" });
@@ -40,7 +48,28 @@ export const signUp = async (req, res) => {
 };
 
 export const login = (req, res) => {
-  console.log("loginUser");
+  try {
+    const { username, password } = req.body;
+    console.log(req.body);
+    console.log(password);
+    const user = User.findOne({ username });
+    const isPasswordCorrect = bcrypt.compare(password, user?.password || "");
+
+    if (!user || !isPasswordCorrect) {
+      res.status(400).json({ error: "Invalid username or password" });
+    }
+
+    generateTokenAndSetCookie(user._id, res);
+    res.status(200).json({
+      _id: user._id,
+      fullName: user.fullName,
+      username: user.username,
+      profilePicture: user.profilePicture,
+    });
+  } catch (e) {
+    console.log("Error in login controller", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 
 export const logout = (req, res) => {
