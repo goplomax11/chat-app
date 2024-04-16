@@ -50,8 +50,6 @@ export const signUp = async (req, res) => {
 export const login = (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log(req.body);
-    console.log(password);
     const user = User.findOne({ username });
     const isPasswordCorrect = bcrypt.compare(password, user?.password || "");
 
@@ -73,5 +71,11 @@ export const login = (req, res) => {
 };
 
 export const logout = (req, res) => {
-  console.log("logoutUser");
+  try {
+    res.clearCookie("jwt");
+    res.status(200).json({ message: "Logout is successfully" });
+  } catch (e) {
+    console.log("Error in logout controller", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
